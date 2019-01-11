@@ -4,8 +4,8 @@ Created on Sun Dec 30 00:03:19 2018
 
 @author: fourn
 """
-import project2_language_model as lm
-import project2_resume_model as rm
+import project2_language_model_2 as lm
+import project2_resume_model_2 as rm
 import project2_utils as utils
 
 from keras.models import load_model
@@ -13,9 +13,10 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
-import pickle
 import io
 import os
+
+from sklearn.externals import joblib
 
 def data_load(path):
     file = io.open(path, encoding='utf-8')
@@ -115,21 +116,23 @@ def plot_confusion_matrix(cm, classes,
 
 def principal():
     print('Load model...')
-    exists = os.path.isfile('data/model_language_cnn.h5')
+    exists = os.path.isfile('data/model_language_cnn_2.h5')
     if exists == False:
         print('Language model generation')
         lm.principal()
-    model_language = load_model("data/model_language_cnn.h5")
-    chars = utils.load_json('data/chars_cnn')
-    char_indices = utils.load_json('data/char_indice_cnn')
+    model_language = load_model("data/model_language_cnn_2.h5")
+    chars = utils.load_json('data/chars_cnn_2')
+    char_indices = utils.load_json('data/char_indice_cnn_2')
     
-    exists = os.path.isfile('data/model_resume.sav')
+    exists = os.path.isfile('data/model_resume_2.sav')
     if exists == False:
         print('Resume model generation')
         rm.principal()
-    model_resume = pickle.load(open("data/model_resume.sav", 'rb'))
+    model_resume = joblib.load("data/model_resume_2.sav")
     
     maxlen = utils.maxlen
+    total_words = len(char_indices)
+    type_predictor = 2
     
     print('Data Load...')
     data = data_load('Corpus/input_learning_gramm_ST_2006.txt')
@@ -143,13 +146,15 @@ def principal():
     
     
     print('Predict notes...')
-    preds = rm.predict_notes(model_resume, resumes, maxlen, model_language, chars, char_indices)
+    preds = rm.predict_notes(model_resume, resumes, maxlen, model_language, total_words, chars, char_indices, type_predictor)
     del model_resume, model_language, resumes, maxlen, chars, char_indices
     
     print('Len notes : ', len(notes))
     print('Len preds : ', len(preds))
-    os.remove("notes_preds.txt")
-    utils.save_text(preds, "notes_preds.txt")
+    exists = os.path.isfile('notes_preds_2.txt')
+    if(exists):
+        os.remove("notes_preds_2.txt")
+    utils.save_text(preds, "notes_preds_2.txt")
     
     success = accuracy_models(notes, preds)
     

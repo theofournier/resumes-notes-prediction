@@ -5,17 +5,18 @@ Created on Sat Dec 29 22:55:41 2018
 @author: fourn
 """
 
-import project2_language_model as lm
+import project2_language_model_2 as lm
 import project2_utils as utils
 
 import numpy as np
 
 from keras.models import load_model
-import pickle
 from sklearn import cross_validation, svm
+from scipy.stats import spearmanr
 import io
 import os
 
+from sklearn.externals import joblib
 
 
 def data_load(path):
@@ -28,6 +29,7 @@ def dataset_preparation(data):
     # Get list of phrases : ['NN FF EE TT', 'FF SS LL'...]
     phrases = data.split("\n")
     print('Number phrases : ', len(phrases))
+    
     
     # Get list of list of list of resume : [[['NN', 'FF', 'EE', 'TT'], ['FF', 'SS', 'LL']],...]]
     len_resumes = 0
@@ -44,7 +46,7 @@ def dataset_preparation(data):
         column2 = phrase[1]
         note = phrase[2]
         temp.append(phrase[3:])
-        for i in range(1 ,len(phrases)):
+        for i in range(1, len(phrases)):
             phrase = phrases[i].split(" ")
             utils.remove_in_list("...", phrase)
             if(len(phrase)>3):
@@ -64,6 +66,22 @@ def dataset_preparation(data):
     
     return resumes, notes
 
+def text_to_sequence_perso(resume, char_indices):
+    temp = []
+    final = []
+    for line in resume:
+        temp = []
+        for word in line:
+            temp.append(char_indices[word])
+        final.append(temp)
+    return final
+
+def tokenization(resumes, char_indices):
+    new_resumes = []
+    for resume in resumes:
+        new_resumes.append(text_to_sequence_perso(resume, char_indices))
+    return new_resumes
+
 def stat(real_estimation, success):
     stat = []
     stat.append(max(real_estimation))
@@ -80,13 +98,12 @@ def stat(real_estimation, success):
     return stat
         
 
-
-def get_stats(resumes, maxlen, model, chars, char_indices):
+def get_stats(resumes, maxlen, model, total_words, chars, type_predictor):
     # For each resume, get the prediction
     stats = []   # 1 line per resume with different stats : list of list
     for i in range(len(resumes)):
-        predictors, labels = lm.predictors_label(resumes[i], maxlen)
-        char_preds, real_estimation, success = lm.predict_char(model, predictors, labels, maxlen, chars, char_indices)
+        predictors, labels = lm.predictors_label(resumes[i], maxlen, total_words, type_predictor)
+        char_preds, real_estimation, success = lm.predict_char(model, predictors, labels, maxlen, chars)
         stats.append(stat(real_estimation, success))
         
     return stats
@@ -107,20 +124,23 @@ def create_model(x_train, y_train, x_valid, y_valid):
     return model
 
 
-def predict_notes(model, resumes, maxlen, model_language, chars, char_indices):
-    stats = get_stats(resumes, maxlen, model_language, chars, char_indices)
+def predict_notes(model, resumes, maxlen, model_language, total_words, chars, char_indices, type_predictor):
+    new_resumes = tokenization(resumes, char_indices)
+    stats = get_stats(new_resumes, maxlen, model_language, total_words, chars, type_predictor)
     return model.predict(stats)
 
 
 def principal():
-    exists = os.path.isfile('data/model_language_cnn.h5')
+    exists = os.path.isfile('data/model_language_cnn_2.h5')
     if exists == False:
         lm.principal()
         
-    model_language = load_model("data/model_language_cnn.h5")
-    chars = utils.load_json('data/chars_cnn')
-    char_indices = utils.load_json('data/char_indice_cnn')
+    model_language = load_model("data/model_language_cnn_2.h5")
+    char_indices = utils.load_json('data/char_indice_cnn_2')
+    chars = utils.load_json('data/chars_cnn_2')
     
+    total_words = len(char_indices)
+    type_predictor = utils.type_predictor
     maxlen = utils.maxlen
     
     print('Data Load...')
@@ -129,13 +149,24 @@ def principal():
     print('Dataset preparation...')
     resumes, notes = dataset_preparation(data)
     del data
+    print(resumes[0])
+    print(notes[0])
     
     print('Total resume : ', len(resumes))
     print('Total notes : ', len(notes))
+    print('Total notes 1 : ', notes.count(1))
+    print('Total notes 2 : ', notes.count(2))
+    print('Total notes 3 : ', notes.count(3))
+    print('Total notes 4 : ', notes.count(4))
+    print('Total notes 5 : ', notes.count(5))
+    
+    print("Tokenization...")
+    new_resumes = tokenization(resumes, char_indices)
+    del resumes, char_indices
     
     print('Get stats...')
-    stats = get_stats(resumes, maxlen, model_language, chars, char_indices)
-    del resumes, model_language, chars, char_indices
+    stats = get_stats(new_resumes, maxlen, model_language, total_words, chars, type_predictor)
+    del new_resumes, model_language
     
     print('Number of stats : ', len(stats))
     
@@ -148,16 +179,16 @@ def principal():
     print('Len x_valid : ', len(x_valid))
     print('Len y_valid : ', len(y_valid))
     
+    print("Spearman de x_train : ", spearmanr(x_train))
     
     print('Build model...')
     model = create_model(x_train, y_train, x_valid, y_valid)
-    del x_train, y_train, x_valid, y_valid
+    print(model.score(x_valid, y_valid))
     
-    pickle.dump(model, open('data/model_resume.sav', 'wb'))
+    del x_train, y_train, x_valid, y_valid
+        
+    joblib.dump(model, 'data/model_resume_2.sav')
     print('Model saved')
-    del model
-
-
-#principal()
-
+    
+principal()
 

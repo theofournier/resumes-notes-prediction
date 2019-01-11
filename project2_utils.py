@@ -7,7 +7,8 @@ Created on Sun Dec 30 00:05:50 2018
 
 import json
 
-maxlen = 5
+maxlen = 7
+type_predictor = 2
 
 
 def save_json(data, name):
@@ -38,4 +39,11 @@ def same_chars(chars, chars2):
 
 def average(lst):
     return sum(lst) / len(lst) 
+
+def save_text(lst, path):
+    F = open(path,"w") 
+    for l in lst:
+        F.write(str(l))
+        F.write('\n')
+    F.close()
     
